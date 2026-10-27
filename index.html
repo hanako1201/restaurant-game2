@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>打工人之魂：社畜服務生模擬器 | Staff Panic Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Noto+Sans+TC:wght@400;500;700;900&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- App Container -->
+  <div id="game-app">
+    <!-- Top HUD Header -->
+    <header class="hud-header">
+      <!-- Top Row on Mobile / Left on Desktop -->
+      <div class="hud-top-bar">
+        <div class="brand-badge">
+          <span class="restaurant-icon">🍳</span>
+          <div class="brand-text">
+            <h1 class="game-title">打工人之魂 <span class="tag">SIM</span></h1>
+            <div class="shift-info">
+              <span id="shift-day">第 1 天班</span>
+              <span class="badge-time" id="shift-timer">倒數: 01:30</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="hud-actions">
+          <button id="btn-sound-toggle" class="btn-icon" title="音效開關">🔊</button>
+          <button id="btn-pause-game" class="btn-icon" title="暫停遊戲">⏸️</button>
+          <button id="btn-rules-help" class="btn-icon btn-rules" title="員工手冊">
+            📖<span class="btn-label-desktop">員工守則</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Dashboard Row on Mobile / Center on Desktop -->
+      <div class="hud-dashboard">
+        <!-- Salary / Deduction Meter -->
+        <div class="hud-stat-box salary-box">
+          <div class="stat-top-row">
+            <span class="stat-label">預估實領薪資</span>
+            <span class="stat-value text-accent" id="net-salary">$1,500</span>
+          </div>
+          <div class="stat-sub">
+            小費 <span class="text-green" id="tips-total">+$0</span> ｜ 扣薪 <span class="text-red" id="fines-total">-$0</span>
+          </div>
+        </div>
+
+        <!-- Reputation / Boss Watch -->
+        <div class="hud-stat-box boss-box">
+          <div class="stat-top-row">
+            <span class="stat-label">主管臉色</span>
+            <span class="boss-status-pill" id="boss-emoji-badge">😊 良好</span>
+          </div>
+          <div class="reputation-bar-wrapper">
+            <div class="reputation-bar-fill" id="boss-patience-bar" style="width: 85%;"></div>
+          </div>
+          <div class="stat-sub boss-desc" id="boss-status-text">店長點評：表現尚可，眼睛放亮點！</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Mobile Navigation Switcher (Only visible on screens <= 900px) -->
+    <nav class="mobile-section-nav" id="mobile-nav">
+      <button class="mobile-nav-btn active" id="btn-nav-hall" data-target="hall">
+        🍽️ 外場巡桌 <span class="mobile-hall-occupancy" id="mobile-hall-badge">(0/4)</span>
+        <span class="nav-alert-dot" id="mobile-alert-dot" style="display: none;"></span>
+      </button>
+      <button class="mobile-nav-btn" id="btn-nav-kitchen" data-target="kitchen">
+        👨‍🍳 廚房取餐 <span class="mobile-tray-badge" id="mobile-tray-mini-count">[0/2]</span>
+      </button>
+    </nav>
+
+    <!-- Main Game Play Area -->
+    <main class="game-main">
+      <!-- Left Column: Kitchen & Serving Station -->
+      <section class="kitchen-section" id="kitchen-section">
+        <div class="panel-header">
+          <h2>👨‍🍳 出餐取吧檯 (Kitchen Bar)</h2>
+          <span class="sub-hint">點選料理放進托盤</span>
+        </div>
+
+        <!-- Food Categories Tabs -->
+        <div class="menu-tabs">
+          <button class="menu-tab active" data-cat="mains">🍱 熱騰主食</button>
+          <button class="menu-tab" data-cat="drinks">🍹 特調飲品</button>
+          <button class="menu-tab" data-cat="desserts">🍮 精緻甜點</button>
+        </div>
+
+        <!-- Food Item Grid -->
+        <div class="food-grid" id="food-items-container">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Player Serving Tray (Embedded in Kitchen on Desktop, sticky dock on Mobile) -->
+        <div class="tray-container" id="tray-container">
+          <div class="tray-header">
+            <h3>🛎️ 服務生托盤 <span id="tray-capacity-text">(0/2)</span></h3>
+            <div class="tray-actions-group">
+              <button id="btn-clear-tray" class="btn-mini text-red" title="清空倒掉（扣材料費$50）">🗑️ 倒掉重備</button>
+              <button id="btn-mobile-goto-hall" class="btn-mini btn-jump-hall" style="display: none;">前往送餐 ➔</button>
+            </div>
+          </div>
+          <div class="tray-slots" id="tray-slots">
+            <!-- Tray items rendered here -->
+          </div>
+          <div class="tray-hint">💡 攜帶餐點後前往外場點選客桌送餐。送錯餐扣薪 $200！</div>
+        </div>
+      </section>
+
+      <!-- Center & Right: Dining Hall Tables -->
+      <section class="dining-hall-section" id="dining-hall-section">
+        <div class="panel-header hall-header">
+          <h2>🍽️ 外場用餐區 (Dining Tables)</h2>
+          <div class="hall-badges">
+            <span class="seat-occupancy" id="occupancy-info">入座率: 0 / 4 桌</span>
+            <span class="warning-banner" id="active-alert-pill" style="display: none;">⚠️ 突發事件！</span>
+          </div>
+        </div>
+
+        <div class="tables-grid" id="tables-container">
+          <!-- 4 Dining Tables dynamically updated -->
+        </div>
+      </section>
+    </main>
+
+    <!-- Top-Centered Floating Notification Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Modal: Interactive Dialogue Confrontation (說錯話/突發應對) -->
+    <div id="dialogue-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card dialogue-card">
+        <div class="dialogue-avatar-area">
+          <div class="customer-avatar-large" id="dialogue-avatar">🦁</div>
+          <div class="customer-profile">
+            <h3 id="dialogue-customer-name">憤怒的暴躁大叔</h3>
+            <span class="customer-tag" id="dialogue-customer-role">奧客類型：咄咄逼人</span>
+          </div>
+        </div>
+
+        <div class="dialogue-speech-bubble" id="dialogue-speech-text">
+          「喂！服務生！我都等了五分鐘了，你們廚房是在現抓牛嗎？！叫你們店長出來！！」
+        </div>
+
+        <div class="dialogue-prompt">請選擇你的應對話術（謹慎回答，說錯話扣薪 $300！）：</div>
+
+        <div class="dialogue-options" id="dialogue-options-list">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Checkout & Bill Calculation (結帳與防霸王餐) -->
+    <div id="checkout-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card checkout-card">
+        <div class="checkout-header">
+          <span class="bill-icon">🧾</span>
+          <div>
+            <h3>桌號 <span id="checkout-table-num">1</span> 結帳明細</h3>
+            <p id="checkout-customer-hint">客人類型：看似行色匆匆的男子</p>
+          </div>
+        </div>
+
+        <div class="bill-details">
+          <div class="bill-items" id="checkout-items-list">
+            <!-- items -->
+          </div>
+          <div class="bill-total-row">
+            <span>應付總額 (Total):</span>
+            <span class="text-accent text-xl" id="checkout-total-price">$0</span>
+          </div>
+        </div>
+
+        <!-- Suspicious dine and dash warning -->
+        <div class="scam-warning-box" id="checkout-scam-notice" style="display: none;">
+          🚨 <strong>神色詭異警告：</strong> 這位客人正鬼鬼祟祟摸向大門，似乎打算藉故假裝付過錢拔腿開溜！
+        </div>
+
+        <div class="checkout-actions" id="checkout-actions-container">
+          <!-- Action buttons (Normal pay / Spot dine and dash / Give change) -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Shift Settlement Report (下班薪資結算) -->
+    <div id="settlement-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card settlement-card">
+        <div class="settlement-stamp" id="settlement-stamp">合格</div>
+        <h2>📑 本日下班打卡薪資結算單</h2>
+        <div class="settlement-subtitle" id="settlement-day-title">第 1 天班工作總結</div>
+
+        <div class="settlement-breakdown">
+          <div class="breakdown-row">
+            <span>日薪基本工資：</span>
+            <span class="text-bold" id="set-base-wage">+$1,500</span>
+          </div>
+          <div class="breakdown-row">
+            <span>顧客滿意小費 (共服務 <span id="set-served-count">0</span> 位)：</span>
+            <span class="text-green text-bold" id="set-tips">+$0</span>
+          </div>
+          <div class="breakdown-row text-red">
+            <span>上錯菜罰款扣薪 (<span id="set-wrong-food-count">0</span> 次)：</span>
+            <span id="set-food-fine">-$0</span>
+          </div>
+          <div class="breakdown-row text-red">
+            <span>應對失當客訴扣薪 (<span id="set-bad-talk-count">0</span> 次)：</span>
+            <span id="set-talk-fine">-$0</span>
+          </div>
+          <div class="breakdown-row text-red">
+            <span>被吃霸王餐自掏腰包賠償 (<span id="set-dnd-count">0</span> 次)：</span>
+            <span id="set-dnd-fine">-$0</span>
+          </div>
+          <hr class="divider">
+          <div class="breakdown-row net-row">
+            <span>今日實領薪水 (Net Salary)：</span>
+            <span class="text-accent text-xxl" id="set-net-salary">$1,500</span>
+          </div>
+        </div>
+
+        <div class="boss-evaluation-box" id="set-boss-comment">
+          店長評語：還行，但明天客人更多，手腳給我俐落點！
+        </div>
+
+        <div class="settlement-footer">
+          <button id="btn-open-shop" class="btn-primary">🛒 前往員工福利社升級 (Upgrade)</button>
+          <button id="btn-next-shift" class="btn-accent">➡️ 開始下一天班 (Next Shift)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Staff Perk Shop (員工裝備升級) -->
+    <div id="shop-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card shop-card">
+        <div class="shop-header">
+          <div>
+            <h2>🏪 社畜補給福利社</h2>
+            <p>使用打工賺來的血汗錢投資自己，提升抗壓與出餐效率！</p>
+          </div>
+          <div class="current-wallet">
+            <span>可用存款:</span>
+            <span class="wallet-amount" id="shop-wallet-amount">$0</span>
+          </div>
+        </div>
+
+        <div class="upgrades-list" id="upgrades-list">
+          <!-- Upgrades rendered here -->
+        </div>
+
+        <div class="shop-footer">
+          <button id="btn-close-shop" class="btn-secondary">返回結算單</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Employee Handbook / Rules Help -->
+    <div id="rules-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card rules-card">
+        <div class="rules-header">
+          <h2>📖 餐廳新手員工生存守則</h2>
+          <button class="btn-close-modal" id="btn-close-rules">✕</button>
+        </div>
+        <div class="rules-content">
+          <div class="rule-block">
+            <h4>1. 核心流程：點餐 ➔ 備餐 ➔ 上菜 ➔ 結帳</h4>
+            <p>客人入座後會思考想吃的餐點，頭頂會出現點單氣泡。在出餐吧檯備齊料理放進托盤，再至對應桌位完成送餐！手機端點選上方【外場巡桌】與【廚房取餐】隨時切換。</p>
+          </div>
+          <div class="rule-block">
+            <h4>2. 扣薪機制總覽 (小心別倒貼！)</h4>
+            <ul>
+              <li><strong>上錯菜 (-$200/次)：</strong>托盤料理必須與客人的點單完全一致！</li>
+              <li><strong>說錯話回嘴 (-$300/次)：</strong>奧客拍桌或家長質疑時，謹慎選擇最得體的公關回應！</li>
+              <li><strong>被吃霸王餐 (-$500 + 餐費)：</strong>客人在結帳時若企圖開溜，務必按【🚨 識破霸王餐】攔截！若放跑他你將自掏腰包賠償！</li>
+            </ul>
+          </div>
+          <div class="rule-block">
+            <h4>3. 多樣特色客人圖鑑 (共 8 種特色客人)</h4>
+            <ul>
+              <li><strong>😇 善良天使客：</strong>耐心極長，讚賞你並給予 25%~30% 豐厚小費！</li>
+              <li><strong>🦁 狂暴奧客：</strong>耐心流失極快，會拍桌吼叫觸發【對話抉擇】！</li>
+              <li><strong>🕶️ 霸王餐慣犯：</strong>吃飽後假藉講電話或假裝付過錢開溜！攔截成功可得破案獎勵 +$200！</li>
+              <li><strong>📱 百萬美食網紅：</strong>相機先吃！20秒內快速上菜可觸發五星好評，小費增幅 +50%！</li>
+              <li><strong>🧒 熊孩子與家長：</strong>會踢桌摔餐具，需智慧化解避免大客訴！</li>
+              <li><strong>⚡ 趕車外帶急躁客：</strong>耐心僅 16 秒但只點 1 樣，光速上菜賺取大額快打小費 +$120！</li>
+              <li><strong>👵 熱情話嘮王阿姨：</strong>喜歡與你聊天關心，給予愛心自製糖果小費！</li>
+              <li><strong>👑 神秘米其林稽核員：</strong>標準極高，服務得當小費翻倍，出錯店長直接暴怒！</li>
+            </ul>
+          </div>
+          <div class="rule-block">
+            <h4>4. 店長怒氣與解僱條件</h4>
+            <p>店長滿意度跌破 0% 將被當場炒魷魚解僱！累積賺到的薪水投資福利社裝備，能讓你輕鬆應對高難度輪班！</p>
+          </div>
+        </div>
+        <div class="rules-footer">
+          <button class="btn-primary" id="btn-confirm-rules">我明白了，保證不被扣薪！</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Game Over / Fired -->
+    <div id="gameover-modal" class="modal-overlay" style="display: none;">
+      <div class="modal-card gameover-card">
+        <div class="gameover-stamp">FIRED!</div>
+        <div class="gameover-icon">📦</div>
+        <h2>你被開除了！</h2>
+        <p class="gameover-reason" id="gameover-reason">店長滿意度降為 0，且薪水被扣光！</p>
+        <div class="gameover-stats" id="gameover-stats">
+          <!-- stats -->
+        </div>
+        <button id="btn-restart-game" class="btn-accent">🔄 重新應徵重來一次</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="audio.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
